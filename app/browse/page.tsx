@@ -1,12 +1,11 @@
-"use client";
+'use client';
 
-export const dynamic = 'force-dynamic';
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { apiFetch } from "@/lib/supabase";
 import Link from "next/link";
 
-export default function BrowsePage() {
+function BrowseContent() {
   const searchParams = useSearchParams();
   const [listings, setListings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -15,7 +14,6 @@ export default function BrowsePage() {
 
   useEffect(() => {
     setLoading(true);
-    // Try to get user location for nearby search
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
@@ -32,7 +30,6 @@ export default function BrowsePage() {
           });
         },
         () => {
-          // Fallback: load all listings
           const params = new URLSearchParams({
             ...(category ? { category } : {}),
             ...(search ? { q: search } : {}),
@@ -54,69 +51,56 @@ export default function BrowsePage() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    apiFetch("listings?q=" + encodeURIComponent(search)).then((data) => {
+    const params = new URLSearchParams({ ...(search ? { q: search } : {}) });
+    apiFetch("listings?" + params.toString()).then((data) => {
       if (Array.isArray(data)) setListings(data);
       setLoading(false);
     });
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      <form onSubmit={handleSearch} className="flex gap-2 mb-8">
-        <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search for items..."
-          className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500" />
-        <button type="submit" className="bg-brand-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-brand-700">
-          Search
-        </button>
-      </form>
-
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">
-          {category ? category.replace("-", " ").replace(/\b\w/g, (c: string) => c.toUpperCase()) : "All Listings"}
-        </h1>
-        <span className="text-gray-500">{listings.length} results</span>
-      </div>
-
-      {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {[1,2,3,4,5,6,7,8].map(i => (
-            <div key={i} className="bg-white rounded-xl h-72 animate-pulse border border-gray-100" />
-          ))}
-        </div>
-      ) : listings.length === 0 ? (
-        <div className="text-center py-20">
-          <p className="text-gray-500 text-lg">No listings found. Try a different search.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {listings.map((listing: any) => (
-            <Link key={listing.id} href={"/listing/" + listing.id}
-              className="bg-white rounded-xl overflow-hidden hover:shadow-lg transition border border-gray-100">
-              <div className="h-48 bg-gray-200 flex items-center justify-center text-gray-400">
-                {(listing.listing_photos?.[0]?.url || listing.primary_photo) ? (
-                  <img src={listing.listing_photos?.[0]?.url || listing.primary_photo} alt={listing.title} className="w-full h-full object-cover" />
-                ) : "No Photo"}
-              </div>
-              <div className="p-4">
-                <h3 className="font-semibold text-gray-900 truncate">{listing.title}</h3>
-                <p className="text-brand-600 font-bold mt-1">
-                  {"$" + (listing.price_per_day || 0).toFixed(2)}/day
-                </p>
-                <div className="flex items-center mt-2 text-sm text-gray-500">
-                  <span>{listing.city || listing.location || "Nearby"}</span>
-                  {listing.distance_km && (
-                    <span className="ml-2">{listing.distance_km.toFixed(1)} km away</span>
-                  )}
-                  {listing.avg_rating > 0 && (
-                    <span className="ml-auto">{"\u2B50 " + Number(listing.avg_rating).toFixed(1)}</span>
-                  )}
+    <div className="min-h-screen bg-gray-50">
+      <nav className="bg-white border-b px-4 py-3 flex items-center justify-between">
+        <Link href="/" className="font-bold text-blue-600 text-lg">IdleAssets</Link>
+        <Link href="/list" className="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm font-medium">List Item</Link>
+      </nav>
+      <div className="max-w-5xl mx-auto p-4">
+        <form onSubmit={handleSearch} className="flex gap-2 mb-6">
+          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search items..." className="flex-1 border rounded-lg px-4 py-2" />
+          <button type="submit" className="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium">Search</button>
+        </form>
+        {loading ? (
+          <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" /></div>
+        ) : listings.length === 0 ? (
+          <div className="text-center py-12"><p className="text-gray-500 text-lg">No items found</p><Link href="/browse" className="text-blue-600 mt-2 inline-block">Clear filters</Link></div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {listings.map((item: any) => (
+              <Link key={item.id} href={`/listing/${item.id}`} className="bg-white rounded-xl border overflow-hidden hover:shadow-md transition">
+                <div className="aspect-square bg-gray-200">
+                  {item.listing_photos?.[0]?.photo_url && <img src={item.listing_photos[0].photo_url} alt={item.title} className="w-full h-full object-cover" />}
                 </div>
-              </div>
-            </Link>
-          ))}
-        </div>
-      )}
+                <div className="p-3">
+                  <h3 className="font-medium text-sm truncate">{item.title}</h3>
+                  <p className="text-blue-600 font-bold">${item.price_per_day}/day</p>
+                  <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
+                    <span>\u2605 {item.avg_rating?.toFixed(1) || 'New'}</span>
+                    <span>\u00B7 {item.total_rentals || 0} rentals</span>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
+  );
+}
+
+export default function BrowsePage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" /></div>}>
+      <BrowseContent />
+    </Suspense>
   );
 }
