@@ -7,10 +7,12 @@ export function createClient() {
   );
 }
 
+// Default client instance used by all pages
+export const supabase = createClient();
+
 export const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
 export async function apiFetch(path: string, options: RequestInit = {}) {
-  const supabase = createClient();
   const { data: { session } } = await supabase.auth.getSession();
   const token = session?.access_token;
   const res = await fetch(supabaseUrl + "/functions/v1/api/" + path, {
@@ -25,7 +27,6 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
 }
 
 export async function stripeFetch(path: string, body?: any) {
-  const supabase = createClient();
   const { data: { session } } = await supabase.auth.getSession();
   const token = session?.access_token;
   const res = await fetch(supabaseUrl + "/functions/v1/stripe/" + path, {
